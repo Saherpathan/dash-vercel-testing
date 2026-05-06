@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Filter, Share2, Calendar, User, Cpu } from 'lucide-react';
+import { Database, Table, Calendar, Activity, Search } from 'lucide-react';
 import { DashboardFilters } from '../hooks/useDashboardFilters';
 
 interface CommandBarProps {
@@ -11,85 +11,74 @@ export const CommandBar: React.FC<CommandBarProps> = ({ filters, onUpdate }) => 
   return (
     <div className="sticky top-0 z-50 w-full border-b border-brand-border bg-brand-bg/80 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-6">
+        
+        {/* Left Side: Brand & Identity */}
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
             <div className="h-6 w-1 bg-brand-primary rounded-full" />
             <h1 className="text-sm font-semibold tracking-tight text-white uppercase">
-              Agent Analytics <span className="text-zinc-500 font-normal">/ AOS-1.0</span>
+              Agent Analytics <span className="text-zinc-500 font-normal">/ BigQuery SDK</span>
             </h1>
           </div>
+        </div>
 
-          <div className="flex items-center gap-4">
-            <FilterItem 
-              icon={<Cpu size={14} />} 
-              label="Agent" 
-              value={filters.agentId} 
-              options={['all', 'billing_agent', 'knowledge_agent', 'orchestrator']}
-              onChange={(v) => onUpdate({ agentId: v })}
+        {/* Center: BQ Configuration Parameters */}
+        <div className="hidden md:flex items-center gap-4 bg-zinc-900/50 p-1 rounded-lg border border-zinc-800">
+          <div className="flex items-center gap-2 px-2 border-r border-zinc-800">
+            <Activity className="h-4 w-4 text-zinc-500" />
+            <input 
+              placeholder="Project ID"
+              className="bg-transparent text-xs text-white focus:outline-none w-32"
+              value={filters.projectId || ''}
+              onChange={(e) => onUpdate({ projectId: e.target.value })}
             />
-            <FilterItem 
-              icon={<User size={14} />} 
-              label="User" 
-              value={filters.userId} 
-              options={['all', 'user-admin', 'guest-123']}
-              onChange={(v) => onUpdate({ userId: v })}
+          </div>
+          <div className="flex items-center gap-2 px-2 border-r border-zinc-800">
+            <Database className="h-4 w-4 text-zinc-500" />
+            <input 
+              placeholder="Dataset ID"
+              className="bg-transparent text-xs text-white focus:outline-none w-24"
+              value={filters.datasetId || ''}
+              onChange={(e) => onUpdate({ datasetId: e.target.value })}
             />
-            <FilterItem 
-              icon={<Calendar size={14} />} 
-              label="Timespan" 
-              value={filters.timespan} 
-              options={['24h', '7d', '30d', '90d']}
-              onChange={(v) => onUpdate({ timespan: v })}
+          </div>
+          <div className="flex items-center gap-2 px-2">
+            <Table className="h-4 w-4 text-zinc-500" />
+            <input 
+              placeholder="Table ID"
+              className="bg-transparent text-xs text-white focus:outline-none w-24"
+              value={filters.tableId || ''}
+              onChange={(e) => onUpdate({ tableId: e.target.value })}
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-brand-primary" size={14} />
+        {/* Right Side: Date Filters */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 bg-zinc-900/50 px-3 py-1.5 rounded-md border border-zinc-800">
+            <Calendar className="h-4 w-4 text-brand-primary" />
             <input 
-              type="text" 
-              placeholder="Search traces..." 
-              className="h-8 w-64 rounded-md border border-brand-border bg-brand-card pl-9 pr-3 text-xs text-zinc-300 outline-none transition-all placeholder:text-zinc-600 focus:border-brand-primary/50 focus:ring-1 focus:ring-brand-primary/20"
+              type="date"
+              className="bg-transparent text-xs text-white focus:outline-none color-scheme-dark"
+              value={filters.startDate || ''}
+              onChange={(e) => onUpdate({ startDate: e.target.value })}
+            />
+            <span className="text-zinc-600 text-xs">—</span>
+            <input 
+              type="date"
+              className="bg-transparent text-xs text-white focus:outline-none color-scheme-dark"
+              value={filters.endDate || ''}
+              onChange={(e) => onUpdate({ endDate: e.target.value })}
             />
           </div>
-          <button 
-            className="flex h-8 items-center gap-2 rounded-md border border-brand-border bg-brand-card px-3 text-xs font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
-            onClick={() => {
-              navigator.clipboard.writeText(window.location.href);
-              alert('Copied shared link to clipboard');
-            }}
-          >
-            <Share2 size={13} />
-            Share Report
+          
+          <button className="flex items-center gap-2 bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary px-3 py-1.5 rounded-md border border-brand-primary/30 transition-all text-xs font-medium">
+            <Search className="h-3.5 w-3.5" />
+            Sync Logs
           </button>
         </div>
+
       </div>
     </div>
   );
 };
-
-const FilterItem: React.FC<{ 
-  icon: React.ReactNode; 
-  label: string; 
-  value: string; 
-  options: string[];
-  onChange: (value: string) => void;
-}> = ({ icon, label, value, options, onChange }) => (
-  <div className="flex items-center gap-2">
-    <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-      {icon} {label}
-    </span>
-    <select 
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-7 cursor-pointer appearance-none rounded border border-brand-border bg-transparent px-2 text-xs font-medium text-zinc-300 outline-none hover:bg-brand-card/50 transition-colors"
-    >
-      {options.map(opt => (
-        <option key={opt} value={opt} className="bg-brand-card text-white">
-          {opt.replace('_', ' ').toUpperCase()}
-        </option>
-      ))}
-    </select>
-  </div>
-);
