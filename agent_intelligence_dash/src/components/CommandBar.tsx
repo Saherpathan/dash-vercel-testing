@@ -1,84 +1,126 @@
-import React from 'react';
-import { Database, Table, Calendar, Activity, Search } from 'lucide-react';
-import { DashboardFilters } from '../hooks/useDashboardFilters';
+import React, { useEffect, useState } from 'react';
+import { Search, Filter, Share2, Calendar, User, Cpu, Link, Check } from 'lucide-react';
+import { useDashboardFilters } from '../hooks/useDashboardFilters';
+import { cn } from '../lib/utils';
 
-interface CommandBarProps {
-  filters: DashboardFilters;
-  onUpdate: (filters: Partial<DashboardFilters>) => void;
+// Types for our filters to ensure strict TS compliance
+export interface DashboardFilters {
+  agentId: string;
+  userId: string;
+  timespan: string;
 }
 
-export const CommandBar: React.FC<CommandBarProps> = ({ filters, onUpdate }) => {
+export const CommandBar: React.FC = () => {
+  const { filters, setFilters } = useDashboardFilters();
+  const [copied, setCopied] = useState(false);
+
+  // Function to handle sharing the specific config URL
+  const handleShare = async () => {
+    await navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="sticky top-0 z-50 w-full border-b border-brand-border bg-brand-bg/80 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-6">
         
-        {/* Left Side: Brand & Identity */}
+        {/* Left Section: Branding & Dynamic Filters */}
         <div className="flex items-center gap-8">
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-1 bg-brand-primary rounded-full" />
-            <h1 className="text-sm font-semibold tracking-tight text-white uppercase">
-              Agent Analytics <span className="text-zinc-500 font-normal">/ BigQuery SDK</span>
+          <div className="flex items-center gap-3">
+            <div className="relative h-6 w-1 bg-brand-primary rounded-full overflow-hidden">
+                <div className="absolute inset-0 bg-white/40 animate-pulse" />
+            </div>
+            <h1 className="text-xs font-bold tracking-widest text-white uppercase font-mono">
+              AOS <span className="text-zinc-600">v1.0.4</span>
             </h1>
           </div>
-        </div>
 
-        {/* Center: BQ Configuration Parameters */}
-        <div className="hidden md:flex items-center gap-4 bg-zinc-900/50 p-1 rounded-lg border border-zinc-800">
-          <div className="flex items-center gap-2 px-2 border-r border-zinc-800">
-            <Activity className="h-4 w-4 text-zinc-500" />
-            <input 
-              placeholder="Project ID"
-              className="bg-transparent text-xs text-white focus:outline-none w-32"
-              value={filters.projectId || ''}
-              onChange={(e) => onUpdate({ projectId: e.target.value })}
+          <div className="flex items-center gap-6">
+            <FilterSelect 
+              icon={<Cpu size={14} />} 
+              label="Agent" 
+              value={filters.agentId || 'all'} 
+              options={['all', 'orchestrator', 'billing_agent', 'swot_analyzer', 'research_bot']}
+              onChange={(v) => setFilters({ agentId: v })}
             />
-          </div>
-          <div className="flex items-center gap-2 px-2 border-r border-zinc-800">
-            <Database className="h-4 w-4 text-zinc-500" />
-            <input 
-              placeholder="Dataset ID"
-              className="bg-transparent text-xs text-white focus:outline-none w-24"
-              value={filters.datasetId || ''}
-              onChange={(e) => onUpdate({ datasetId: e.target.value })}
+            
+            <FilterSelect 
+              icon={<User size={14} />} 
+              label="User" 
+              value={filters.userId || 'all'} 
+              options={['all', 'internal-admin', 'partner-01', 'guest-node']}
+              onChange={(v) => setFilters({ userId: v })}
             />
-          </div>
-          <div className="flex items-center gap-2 px-2">
-            <Table className="h-4 w-4 text-zinc-500" />
-            <input 
-              placeholder="Table ID"
-              className="bg-transparent text-xs text-white focus:outline-none w-24"
-              value={filters.tableId || ''}
-              onChange={(e) => onUpdate({ tableId: e.target.value })}
+
+            <FilterSelect 
+              icon={<Calendar size={14} />} 
+              label="Timespan" 
+              value={filters.timespan || '24h'} 
+              options={['1h', '24h', '7d', '30d']}
+              onChange={(v) => setFilters({ timespan: v })}
             />
           </div>
         </div>
 
-        {/* Right Side: Date Filters */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-zinc-900/50 px-3 py-1.5 rounded-md border border-zinc-800">
-            <Calendar className="h-4 w-4 text-brand-primary" />
+        {/* Right Section: Trace Search & Sharing */}
+        <div className="flex items-center gap-3">
+          <div className="relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-brand-primary transition-colors" size={14} />
             <input 
-              type="date"
-              className="bg-transparent text-xs text-white focus:outline-none color-scheme-dark"
-              value={filters.startDate || ''}
-              onChange={(e) => onUpdate({ startDate: e.target.value })}
-            />
-            <span className="text-zinc-600 text-xs">—</span>
-            <input 
-              type="date"
-              className="bg-transparent text-xs text-white focus:outline-none color-scheme-dark"
-              value={filters.endDate || ''}
-              onChange={(e) => onUpdate({ endDate: e.target.value })}
+              type="text" 
+              placeholder="Search Trace ID..." 
+              className="h-8 w-48 lg:w-64 rounded-md border border-brand-border bg-zinc-900/50 pl-9 pr-3 text-[11px] font-mono text-zinc-300 outline-none transition-all placeholder:text-zinc-600 focus:border-brand-primary/50 focus:ring-1 focus:ring-brand-primary/20"
             />
           </div>
-          
-          <button className="flex items-center gap-2 bg-brand-primary/10 hover:bg-brand-primary/20 text-brand-primary px-3 py-1.5 rounded-md border border-brand-primary/30 transition-all text-xs font-medium">
-            <Search className="h-3.5 w-3.5" />
-            Sync Logs
+
+          <button 
+            onClick={handleShare}
+            className={cn(
+              "flex h-8 items-center gap-2 rounded-md border border-brand-border bg-brand-card px-3 text-[11px] font-bold uppercase tracking-tight transition-all",
+              copied ? "text-emerald-400 border-emerald-500/50 bg-emerald-500/5" : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
+            )}
+          >
+            {copied ? <Check size={13} /> : <Share2 size={13} />}
+            {copied ? "Copied" : "Share Config"}
           </button>
         </div>
-
       </div>
     </div>
   );
 };
+
+/* Reusable Filter Component */
+interface FilterSelectProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (val: string) => void;
+}
+
+const FilterSelect: React.FC<FilterSelectProps> = ({ icon, label, value, options, onChange }) => (
+  <div className="flex items-center gap-2.5">
+    <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-tighter text-zinc-500">
+      <span className="text-zinc-600">{icon}</span>
+      {label}
+    </div>
+    <div className="relative">
+      <select 
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-7 min-w-[80px] cursor-pointer appearance-none rounded border border-brand-border bg-zinc-900/20 px-2 pr-6 text-[11px] font-mono font-medium text-zinc-300 outline-none hover:border-zinc-700 hover:bg-zinc-800/50 transition-all"
+      >
+        {options.map(opt => (
+          <option key={opt} value={opt} className="bg-zinc-900 text-white">
+            {opt.toUpperCase()}
+          </option>
+        ))}
+      </select>
+      {/* Custom Chevron for the Select */}
+      <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600">
+        <Filter size={10} />
+      </div>
+    </div>
+  </div>
+);

@@ -1,108 +1,154 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { ReactFlow, Background, Controls, Edge, Node, Position, Handle } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { MOCK_TRACE_DATA, TraceNode } from '../services/mockData';
 import { cn } from '../lib/utils';
-import { Activity, Wrench, Bot, AlertCircle } from 'lucide-react';
+import { Activity, Wrench, Bot, AlertCircle, Loader2 } from 'lucide-react';
+import { useDashboardFilters } from '../hooks/useDashboardFilters';
+import { fetchAgentData } from '../services/apiService';
 
-const nodeTypes = {
-  customNode: CustomNode,
-};
-
+// Define the Node UI
 function CustomNode({ data }: any) {
-  const node = data.node as TraceNode;
+  const node = data.node;
   const isError = node.status === 'error';
 
   return (
     <div className={cn(
-      "relative min-w-[200px] rounded-lg border-2 bg-brand-card p-3 transition-all",
-      isError ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]" : "border-zinc-800 hover:border-zinc-700"
+      "relative min-w-[220px] rounded-lg border-2 bg-brand-card p-3 transition-all",
+      isError ? "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.1)]" : "border-zinc-800 hover:border-zinc-700"
     )}>
-      <Handle type="target" position={Position.Top} className="!bg-zinc-700" />
+      <Handle type="target" position={Position.Top} className="!bg-zinc-700 !w-2 !h-2" />
       
       <div className="flex items-center justify-between gap-3">
         <div className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-md",
-          node.type === 'orchestrator' ? "bg-amber-500/10 text-amber-500" :
-          node.type === 'agent' ? "bg-blue-500/10 text-blue-500" :
-          "bg-emerald-500/10 text-emerald-500"
+          "flex h-9 w-9 items-center justify-center rounded-md border",
+          node.type === 'orchestrator' ? "bg-amber-500/10 border-amber-500/20 text-amber-500" :
+          node.type === 'agent' ? "bg-blue-500/10 border-blue-500/20 text-blue-500" :
+          "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
         )}>
-          {node.type === 'orchestrator' && <Activity size={16} />}
-          {node.type === 'agent' && <Bot size={16} />}
-          {node.type === 'tool' && <Wrench size={16} />}
+          {node.type === 'orchestrator' && <Activity size={18} />}
+          {node.type === 'agent' && <Bot size={18} />}
+          {node.type === 'tool' && <Wrench size={18} />}
         </div>
         
-        <div className="flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-widest opacity-50">{node.type}</p>
-          <p className="text-sm font-semibold">{node.label}</p>
+        <div className="flex-1 overflow-hidden">
+          <p className="text-[9px] font-black uppercase tracking-tighter opacity-40 mb-0.5">{node.type}</p>
+          <p className="text-xs font-bold truncate text-zinc-200">{node.label}</p>
         </div>
 
-        {isError && <AlertCircle size={16} className="text-red-500 animate-pulse" />}
+        {isError && <AlertCircle size={16} className="text-red-500 animate-pulse shrink-0" />}
       </div>
 
-      <div className="mt-3 flex items-center justify-between border-t border-brand-border pt-2 text-[10px] font-mono text-zinc-500">
-        <span>{node.latency}ms</span>
-        <span>{node.tokens} tokens</span>
+      <div className="mt-3 flex items-center justify-between border-t border-zinc-800/50 pt-2 text-[10px] font-mono font-medium">
+        <span className="text-zinc-500">{node.latency}ms</span>
+        <span className="text-brand-primary">{node.tokens.toLocaleString()} <span className="opacity-50">TKN</span></span>
       </div>
 
-      <Handle type="source" position={Position.Bottom} className="!bg-zinc-700" />
+      <Handle type="source" position={Position.Bottom} className="!bg-zinc-700 !w-2 !h-2" />
     </div>
   );
 }
 
-export const TraceTree: React.FC = () => {
-  const { nodes, edges } = useMemo(() => {
-    const flowNodes: Node[] = MOCK_TRACE_DATA.map((node, i) => ({
-      id: node.id,
-      type: 'customNode',
-      position: { x: i * 250, y: (node.parentId ? 200 : 0) + (node.type === 'tool' ? 200 : 0) },
-      data: { node },
-    }));
+const nodeTypes = { customNode: CustomNode };
 
-    const flowEdges: Edge[] = MOCK_TRACE_DATA
+export const TraceTree: React.FC = () => {
+  const { filters } = useDashboardFilters();
+  const [traceData, setTraceData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadTrace = async () => {
+      setLoading(true);
+      try {
+        // Fetching live trace logs from BigQuery
+        const data = await fetchAgentData(filters.orgId);
+        setTraceData(data.traces || []);
+      } catch (err) {
+        console.error("Trace load failed", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTrace();
+  }, [filters.orgId, filters.agentId]);
+
+  // Transform flat BigQuery logs into React Flow format
+  const { nodes, edges } = useMemo(() => {
+    const flowNodes: Node[] = traceData.map((node, i) => {
+      // Basic vertical layout logic: Orchestrator (Top) -> Agents (Mid) -> Tools (Bottom)
+      const depth = node.type === 'orchestrator' ? 0 : node.type === 'agent' ? 1 : 2;
+      
+      return {
+        id: node.id,
+        type: 'customNode',
+        position: { x: i * 260, y: depth * 180 },
+        data: { node },
+      };
+    });
+
+    const flowEdges: Edge[] = traceData
       .filter(n => n.parentId)
       .map(node => ({
         id: `e${node.parentId}-${node.id}`,
         source: node.parentId!,
         target: node.id,
         animated: node.status === 'success',
+        type: 'smoothstep',
         style: { 
-          stroke: node.status === 'error' ? '#ef4444' : '#27272a',
-          strokeWidth: 2 
+          stroke: node.status === 'error' ? '#ef4444' : '#3f3f46',
+          strokeWidth: 2,
         },
       }));
 
     return { nodes: flowNodes, edges: flowEdges };
-  }, []);
+  }, [traceData]);
+
+  if (loading) {
+    return (
+      <div className="h-[600px] flex flex-col items-center justify-center bg-brand-bg/50 rounded-xl border border-brand-border">
+        <Loader2 className="animate-spin text-brand-primary mb-4" size={32} />
+        <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest">Reconstructing Trace Tree...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="h-[600px] w-full rounded-xl border border-brand-border bg-brand-bg/50 p-6 shadow-inner">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="h-[650px] w-full rounded-xl border border-brand-border bg-brand-bg/30 p-6">
+      <div className="mb-6 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2">
-            <Activity size={14} className="text-zinc-500" /> Reasoning Trace Execution
+          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white flex items-center gap-3">
+            <span className="h-1.5 w-1.5 rounded-full bg-brand-primary animate-ping" />
+            Reasoning Trace Execution
           </h3>
-          <p className="text-xs text-zinc-500 mt-1">Hierarchical visualization of agent handoffs and tool calls</p>
+          <p className="text-[11px] text-zinc-500 mt-1 font-medium">Real-time sequence of agentic reasoning and dependency resolution</p>
         </div>
-        <div className="flex items-center gap-4 text-[10px] uppercase font-bold tracking-widest">
-          <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-amber-500" /> Orchestrator</div>
-          <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-blue-500" /> Agent</div>
-          <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-emerald-500" /> Tool</div>
+        
+        <div className="flex items-center gap-5 p-2 bg-zinc-900/50 rounded-lg border border-zinc-800">
+          <LegendItem color="bg-amber-500" label="Orchestrator" />
+          <LegendItem color="bg-blue-500" label="Agent" />
+          <LegendItem color="bg-emerald-500" label="Tool" />
         </div>
       </div>
       
-      <div className="h-full w-full overflow-hidden rounded-lg bg-brand-bg relative border border-brand-border">
+      <div className="h-[500px] w-full overflow-hidden rounded-lg bg-zinc-950/50 border border-zinc-800/50 shadow-2xl">
         <ReactFlow
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
           fitView
           colorMode="dark"
+          maxZoom={1.5}
+          minZoom={0.2}
         >
-          <Background color="#27272a" gap={20} />
-          <Controls className="bg-brand-card border-brand-border fill-white" />
+          <Background color="#18181b" gap={25} size={1} />
+          <Controls className="!bg-zinc-900 !border-zinc-700 !fill-white" />
         </ReactFlow>
       </div>
     </div>
   );
 };
+
+const LegendItem = ({ color, label }: { color: string, label: string }) => (
+  <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-zinc-400">
+    <div className={cn("h-1.5 w-1.5 rounded-full", color)} /> {label}
+  </div>
+);
