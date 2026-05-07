@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Filter, Share2, Calendar, User, Cpu, Check, Key, ShieldCheck } from 'lucide-react';
+import { 
+  Search, 
+  Filter, 
+  Share2, 
+  Calendar, 
+  Cpu, 
+  Check, 
+  Key, 
+  Database, 
+  Table as TableIcon, 
+  LayoutGrid 
+} from 'lucide-react';
 import { useDashboardFilters } from '../hooks/useDashboardFilters';
 import { cn } from '../lib/utils';
 
@@ -13,9 +24,11 @@ export const CommandBar: React.FC = () => {
   const { filters, setFilters } = useDashboardFilters();
   const [copied, setCopied] = useState(false);
 
-  // ✅ MOVED INSIDE: Hooks must live here
+  // --- User Credentials State ---
   const [apiKey, setApiKey] = useState(localStorage.getItem('user_gemini_key') || '');
   const [projectId, setProjectId] = useState(localStorage.getItem('user_gcp_project') || '');
+  const [datasetId, setDatasetId] = useState(localStorage.getItem('user_bq_dataset') || '');
+  const [tableId, setTableId] = useState(localStorage.getItem('user_bq_table') || '');
 
   const handleShare = async () => {
     await navigator.clipboard.writeText(window.location.href);
@@ -24,9 +37,10 @@ export const CommandBar: React.FC = () => {
   };
 
   return (
-    <div className="sticky top-0 z-50 w-full border-b border-brand-border bg-brand-bg/80 backdrop-blur-md">
+    <div className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-black/80 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between px-6">
         
+        {/* Left: Branding & Logic Filters */}
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-3">
             <div className="relative h-6 w-1 bg-brand-primary rounded-full overflow-hidden">
@@ -56,35 +70,67 @@ export const CommandBar: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Section: User Credentials + Sharing */}
+        {/* Right: Data Source Inputs (BYO Credentials) */}
         <div className="flex items-center gap-3">
-          {/* ✅ USER CREDENTIALS INPUTS */}
           <div className="flex items-center gap-2 px-4 border-l border-zinc-800">
+            
+            {/* API KEY */}
             <div className="relative group">
               <Key className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600" size={10} />
               <input 
                 type="password" 
-                placeholder="Gemini API Key" 
+                placeholder="Gemini Key" 
                 value={apiKey}
                 onChange={(e) => {
                   setApiKey(e.target.value);
                   localStorage.setItem('user_gemini_key', e.target.value);
                 }}
-                className="h-8 w-32 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-emerald-500 focus:border-emerald-500/50 outline-none transition-all"
+                className="h-8 w-28 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-emerald-500 focus:border-emerald-500/50 outline-none transition-all"
               />
             </div>
 
+            {/* PROJECT ID */}
             <div className="relative group">
-              <ShieldCheck className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600" size={10} />
+              <LayoutGrid className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600" size={10} />
               <input 
                 type="text" 
-                placeholder="GCP Project ID" 
+                placeholder="Project ID" 
                 value={projectId}
                 onChange={(e) => {
                   setProjectId(e.target.value);
                   localStorage.setItem('user_gcp_project', e.target.value);
                 }}
-                className="h-8 w-32 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-blue-400 focus:border-blue-400/50 outline-none transition-all"
+                className="h-8 w-28 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-blue-400 focus:border-blue-400/50 outline-none transition-all"
+              />
+            </div>
+
+            {/* DATASET ID */}
+            <div className="relative group">
+              <Database className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600" size={10} />
+              <input 
+                type="text" 
+                placeholder="Dataset" 
+                value={datasetId}
+                onChange={(e) => {
+                  setDatasetId(e.target.value);
+                  localStorage.setItem('user_bq_dataset', e.target.value);
+                }}
+                className="h-8 w-24 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-zinc-300 focus:border-zinc-500/50 outline-none transition-all"
+              />
+            </div>
+
+            {/* TABLE ID */}
+            <div className="relative group">
+              <TableIcon className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600" size={10} />
+              <input 
+                type="text" 
+                placeholder="Table" 
+                value={tableId}
+                onChange={(e) => {
+                  setTableId(e.target.value);
+                  localStorage.setItem('user_bq_table', e.target.value);
+                }}
+                className="h-8 w-24 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-zinc-300 focus:border-zinc-500/50 outline-none transition-all"
               />
             </div>
           </div>
@@ -92,7 +138,7 @@ export const CommandBar: React.FC = () => {
           <button 
             onClick={handleShare}
             className={cn(
-              "flex h-8 items-center gap-2 rounded-md border border-brand-border bg-brand-card px-3 text-[11px] font-bold uppercase tracking-tight transition-all",
+              "flex h-8 items-center gap-2 rounded-md border border-zinc-800 bg-brand-card px-3 text-[11px] font-bold uppercase tracking-tight transition-all",
               copied ? "text-emerald-400 border-emerald-500/50 bg-emerald-500/5" : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
             )}
           >
@@ -124,7 +170,7 @@ const FilterSelect: React.FC<FilterSelectProps> = ({ icon, label, value, options
       <select 
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-7 min-w-[80px] cursor-pointer appearance-none rounded border border-brand-border bg-zinc-900/20 px-2 pr-6 text-[11px] font-mono font-medium text-zinc-300 outline-none hover:border-zinc-700 hover:bg-zinc-800/50 transition-all uppercase"
+        className="h-7 min-w-[80px] cursor-pointer appearance-none rounded border border-zinc-800 bg-zinc-900/20 px-2 pr-6 text-[11px] font-mono font-medium text-zinc-300 outline-none hover:border-zinc-700 hover:bg-zinc-800/50 transition-all uppercase"
       >
         {options.map(opt => (
           <option key={opt} value={opt} className="bg-zinc-900 text-white uppercase text-[10px]">
