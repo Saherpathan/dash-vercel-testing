@@ -1,3 +1,6 @@
+const [apiKey, setApiKey] = useState(localStorage.getItem('user_gemini_key') || '');
+const [projectId, setProjectId] = useState(localStorage.getItem('user_gcp_project') || '');
+
 import React, { useEffect, useState } from 'react';
 import { Search, Filter, Share2, Calendar, User, Cpu, Link, Check } from 'lucide-react';
 import { useDashboardFilters } from '../hooks/useDashboardFilters';
@@ -124,3 +127,25 @@ const FilterSelect: React.FC<FilterSelectProps> = ({ icon, label, value, options
     </div>
   </div>
 );
+<div className="flex items-center gap-2 px-4 border-l border-zinc-800">
+  <input 
+    type="password" 
+    placeholder="Gemini API Key" 
+    value={apiKey}
+    onChange={(e) => {
+      setApiKey(e.target.value);
+      localStorage.setItem('user_gemini_key', e.target.value);
+    }}
+    className="h-8 w-32 bg-zinc-900 border border-zinc-800 rounded px-2 text-[10px] text-emerald-500"
+  />
+  <input 
+    type="text" 
+    placeholder="GCP Project ID" 
+    value={projectId}
+    onChange={(e) => {
+      setProjectId(e.target.value);
+      localStorage.setItem('user_gcp_project', e.target.value);
+    }}
+    className="h-8 w-32 bg-zinc-900 border border-zinc-800 rounded px-2 text-[10px] text-blue-400"
+  />
+</div>

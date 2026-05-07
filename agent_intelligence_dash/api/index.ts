@@ -1,6 +1,14 @@
-// api/index.ts
 import { BigQuery } from '@google-cloud/bigquery';
 
+export default async function handler(req: any, res: any) {
+  const { org_id } = req.query;
+  const project_id = req.headers['x-gcp-project-id'];
+
+  if (!project_id) {
+    return res.status(400).json({ error: "GCP Project ID is required" });
+  }
+
+  const bq = new BigQuery({ projectId: project_id });
 const bq = new BigQuery({
   projectId: process.env.GCP_PROJECT_ID,
   credentials: {
@@ -26,3 +34,4 @@ export default async function handler(req: any, res: any) {
     res.status(500).json({ error: error.message });
   }
 }
+

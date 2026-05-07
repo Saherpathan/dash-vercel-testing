@@ -1,6 +1,0 @@
-{
-  "name": "AOS: Agentic Observability System",
-  "description": "High-fidelity mission control dashboard for monitoring multi-agent systems, featuring session tracing, FinOps analytics, and latency diagnostics.",
-  "requestFramePermissions": [],
-  "majorCapabilities": []
-}
