@@ -1,25 +1,32 @@
-export const fetchAgentData = async (orgId: string) => {
-  // Grab all 4 required credentials from the user's browser storage
+// src/services/apiService.ts
+
+/**
+ * Fetches agent analytics with dynamic timespan filtering
+ * @param orgId - The organization ID from the URL
+ * @param timespan - Selected range (e.g., '1h', '30d', '1y')
+ */
+export const fetchAgentData = async (orgId: string, timespan: string = '24h') => {
   const credentials = {
-    apiKey: localStorage.getItem('user_gemini_key') || '',
     projectId: localStorage.getItem('user_gcp_project') || '',
     datasetId: localStorage.getItem('user_bq_dataset') || '',
-    tableId: localStorage.getItem('user_bq_table') || ''
+    tableId: localStorage.getItem('user_bq_table') || '',
+    apiKey: localStorage.getItem('user_gemini_key') || ''
   };
 
-  // Construct the request with the credentials in the headers
-  const response = await fetch(`/api?org_id=${orgId}`, {
+  // Append timespan to the URL parameters
+  const url = `/api?org_id=${orgId}&timespan=${timespan}`;
+
+  const response = await fetch(url, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
-      'x-gemini-api-key': credentials.apiKey,
       'x-gcp-project-id': credentials.projectId,
       'x-bq-dataset': credentials.datasetId,
-      'x-bq-table': credentials.tableId
+      'x-bq-table': credentials.tableId,
+      'x-gemini-api-key': credentials.apiKey
     }
   });
 
-  // Handle errors from the BigQuery backend
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.error || 'Failed to fetch agent intelligence data');
@@ -28,16 +35,11 @@ export const fetchAgentData = async (orgId: string) => {
   return response.json();
 };
 
-/**
- * Helper to fetch filter options (distinct agents/users)
- */
 export const fetchFilterOptions = async (type: string) => {
   const projectId = localStorage.getItem('user_gcp_project');
-  
   const response = await fetch(`/api/filters?type=${type}`, {
     headers: { 'x-gcp-project-id': projectId || '' }
   });
-  
   if (!response.ok) return [];
   return response.json();
 };

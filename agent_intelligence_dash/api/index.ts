@@ -1,6 +1,5 @@
 import { BigQuery } from '@google-cloud/bigquery';
 
-// Initialize BigQuery using your MASTER credentials from Vercel Environment Variables
 const bqClient = new BigQuery({
   projectId: process.env.GCP_PROJECT_ID,
   credentials: {
@@ -10,20 +9,34 @@ const bqClient = new BigQuery({
 });
 
 export default async function handler(req: any, res: any) {
-  // Capture coordinates from headers provided by the user via the CommandBar
   const userProject = req.headers['x-gcp-project-id'];
   const userDataset = req.headers['x-bq-dataset'];
   const userTable = req.headers['x-bq-table'];
-  const { org_id } = req.query;
+  
+  // Capture org_id and timespan from the URL
+  const { org_id, timespan } = req.query;
 
-  // Validate that we have what we need
   if (!userProject || !userDataset || !userTable) {
     return res.status(400).json({ 
-      error: "Missing Configuration: Please enter Project, Dataset, and Table IDs in the dashboard." 
+      error: "Missing Configuration: Please enter Project, Dataset, and Table IDs." 
     });
   }
 
-  // Construct the dynamic table path
+  // --- Timespan Logic ---
+  let interval = '24 HOUR'; // Default fallback
+  const map: Record<string, string> = {
+    '1h': '1 HOUR',
+    '24h': '24 HOUR',
+    '7d': '7 DAY',
+    '30d': '30 DAY',
+    '90d': '90 DAY',
+    '1y': '1 YEAR'
+  };
+  
+  if (timespan && map[timespan as string]) {
+    interval = map[timespan as string];
+  }
+
   const tablePath = `\`${userProject}.${userDataset}.${userTable}\``;
 
   const query = `
@@ -32,6 +45,7 @@ export default async function handler(req: any, res: any) {
       SUM(CAST(JSON_VALUE(attributes, '$.usage_metadata.total_token_count') AS INT64)) as total_tokens
     FROM ${tablePath}
     WHERE org_id = @org_id
+    AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ${interval})
     GROUP BY agent
   `;
 
@@ -42,7 +56,6 @@ export default async function handler(req: any, res: any) {
     });
     res.status(200).json(rows);
   } catch (error: any) {
-    console.error("BQ Error:", error);
     res.status(500).json({ error: error.message });
   }
 }

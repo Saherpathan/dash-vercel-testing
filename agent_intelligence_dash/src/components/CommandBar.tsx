@@ -64,7 +64,8 @@ export const CommandBar: React.FC = () => {
               icon={<Calendar size={14} />} 
               label="Timespan" 
               value={filters.timespan || '24h'} 
-              options={['1h', '24h', '7d', '30d']}
+              // UPDATED OPTIONS HERE
+              options={['1h', '24h', '7d', '30d', '90d', '1y']}
               onChange={(v) => setFilters({ timespan: v })}
             />
           </div>
