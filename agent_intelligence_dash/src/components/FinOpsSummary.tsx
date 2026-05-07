@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Wallet, Zap, MessageSquare, Loader2 } from 'lucide-react';
+import { TrendingUp, Wallet, Zap, MessageSquare } from 'lucide-react';
 import { cn, formatCompactNumber, formatCurrency } from '../lib/utils';
 import { useDashboardFilters } from '../hooks/useDashboardFilters';
 import { fetchAgentData } from '../services/apiService';
@@ -15,10 +15,35 @@ export const FinOpsSummary: React.FC = () => {
     const loadFinOps = async () => {
       setLoading(true);
       try {
-        // Fetching live metrics from your BigQuery API
-        const data = await fetchAgentData(filters.orgId);
-        setStats(data.summary);
-        setConsumptionData(data.consumptionTrend);
+        // Fetch raw rows from BigQuery based on selected timespan
+        const rawData = await fetchAgentData(filters.timespan);
+        
+        /** * DATA TRANSFORMER
+         * Since BigQuery returns raw rows, we calculate the summary metrics here.
+         * Adjust these keys (total_tokens, cost, etc) based on your BQ column names.
+         */
+        const totalTokens = rawData.reduce((acc: number, curr: any) => acc + (Number(curr.total_tokens) || 0), 0);
+        const totalSessions = new Set(rawData.map((r: any) => r.session_id)).size;
+        
+        setStats({
+          totalSessions: totalSessions || 0,
+          sessionTrend: "+12%", // Mock trend for UI
+          totalQuestions: rawData.length,
+          questionTrend: "+5%",
+          totalTokens: (totalTokens / 1000000).toFixed(2),
+          tokenTrend: "+18%",
+          totalCost: (totalTokens * 0.000002), // Rough estimate: $2 per 1M tokens
+          costTrend: "+14%"
+        });
+
+        // Map data for the Area Chart (Grouped by date)
+        const trend = rawData.map((row: any) => ({
+          date: new Date(row.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          input: Math.floor(Number(row.total_tokens) * 0.4), // Mock input/output split
+          output: Math.floor(Number(row.total_tokens) * 0.6),
+        })).reverse();
+
+        setConsumptionData(trend);
       } catch (err) {
         console.error("FinOps Load Failed:", err);
       } finally {
@@ -26,7 +51,7 @@ export const FinOpsSummary: React.FC = () => {
       }
     };
     loadFinOps();
-  }, [filters.orgId, filters.timespan]);
+  }, [filters.timespan]); // Re-run whenever timespan changes
 
   if (loading || !stats) {
     return (
@@ -41,51 +66,18 @@ export const FinOpsSummary: React.FC = () => {
 
   return (
     <div className="grid grid-cols-12 gap-6 p-6">
-      {/* Sparkline Cards */}
-      <StatCard 
-        label="Total Sessions" 
-        value={stats.totalSessions} 
-        trend={stats.sessionTrend} 
-        icon={<TrendingUp size={16} />}
-      />
-      <StatCard 
-        label="Total User Questions" 
-        value={stats.totalQuestions} 
-        trend={stats.questionTrend} 
-        icon={<MessageSquare size={16} />}
-      />
-      <StatCard 
-        label="Total Tokens (Mil)" 
-        value={stats.totalTokens} 
-        unit="Mil"
-        trend={stats.tokenTrend} 
-        icon={<Zap size={16} />}
-        color="text-brand-primary"
-      />
-      <StatCard 
-        label="Total Cost (USD)" 
-        value={formatCurrency(stats.totalCost)} 
-        trend={stats.costTrend} 
-        icon={<Wallet size={16} />}
-        color="text-emerald-500"
-      />
+      <StatCard label="Total Sessions" value={stats.totalSessions} trend={stats.sessionTrend} icon={<TrendingUp size={16} />} />
+      <StatCard label="Total Agent Hits" value={stats.totalQuestions} trend={stats.questionTrend} icon={<MessageSquare size={16} />} />
+      <StatCard label="Total Tokens" value={stats.totalTokens} unit="Mil" trend={stats.tokenTrend} icon={<Zap size={16} />} color="text-brand-primary" />
+      <StatCard label="Est. Cost (USD)" value={formatCurrency(stats.totalCost)} trend={stats.costTrend} icon={<Wallet size={16} />} color="text-emerald-500" />
 
-      {/* Main Consumption Chart */}
       <div className="col-span-12 rounded-xl border border-brand-border bg-brand-card p-6 shadow-2xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2">
-              <Zap size={14} className="text-brand-primary" /> Daily Token Consumption
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 text-white">
+              <Zap size={14} className="text-brand-primary" /> Token Consumption Trend
             </h3>
-            <p className="text-[11px] text-zinc-500 mt-1 font-medium">Aggregated Input vs Output tokens across selected timespan</p>
-          </div>
-          <div className="flex gap-6 text-[10px] font-black uppercase tracking-widest text-zinc-400">
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-brand-primary" /> Input
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-blue-500" /> Output
-            </div>
+            <p className="text-[11px] text-zinc-500 mt-1 font-medium italic">Projected usage based on historical BigQuery logs</p>
           </div>
         </div>
         
@@ -103,42 +95,11 @@ export const FinOpsSummary: React.FC = () => {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#18181b" vertical={false} />
-              <XAxis 
-                dataKey="date" 
-                stroke="#3f3f46" 
-                fontSize={10} 
-                tickLine={false} 
-                axisLine={false} 
-                tickMargin={12}
-                fontFamily="JetBrains Mono"
-              />
-              <YAxis 
-                stroke="#3f3f46" 
-                fontSize={10} 
-                tickLine={false} 
-                axisLine={false} 
-                tickFormatter={(val) => formatCompactNumber(val)}
-                fontFamily="JetBrains Mono"
-              />
+              <XAxis dataKey="date" stroke="#3f3f46" fontSize={10} tickLine={false} axisLine={false} tickMargin={12} />
+              <YAxis stroke="#3f3f46" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => formatCompactNumber(val)} />
               <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#27272a', strokeWidth: 1 }} />
-              <Area 
-                type="monotone" 
-                dataKey="input" 
-                stroke="#ef4444" 
-                strokeWidth={2}
-                fillOpacity={1} 
-                fill="url(#colorInput)" 
-                animationDuration={1500}
-              />
-              <Area 
-                type="monotone" 
-                dataKey="output" 
-                stroke="#3b82f6" 
-                strokeWidth={2}
-                fillOpacity={1} 
-                fill="url(#colorOutput)" 
-                animationDuration={2000}
-              />
+              <Area type="monotone" dataKey="input" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorInput)" animationDuration={1000} />
+              <Area type="monotone" dataKey="output" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorOutput)" animationDuration={1200} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -147,31 +108,19 @@ export const FinOpsSummary: React.FC = () => {
   );
 };
 
-/* Reusable Stat Card with Skeleton-ready design */
-const StatCard: React.FC<{ 
-  label: string; 
-  value: string | number; 
-  trend: string; 
-  icon: React.ReactNode;
-  unit?: string;
-  color?: string;
-}> = ({ label, value, trend, icon, unit, color = "text-white" }) => (
+const StatCard: React.FC<{ label: string; value: string | number; trend: string; icon: React.ReactNode; unit?: string; color?: string; }> = ({ label, value, trend, icon, unit, color = "text-white" }) => (
   <div className="col-span-12 md:col-span-3 rounded-xl border border-brand-border bg-brand-card p-5 transition-all hover:border-zinc-700 group">
     <div className="flex items-center justify-between opacity-40 group-hover:opacity-100 transition-opacity">
       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{label}</span>
       <div className="text-zinc-500">{icon}</div>
     </div>
     <div className="mt-3 flex items-baseline gap-2">
-      <span className={cn("text-3xl font-mono font-bold tracking-tighter", color)}>
-        {value}
-      </span>
+      <span className={cn("text-3xl font-mono font-bold tracking-tighter", color)}>{value}</span>
       {unit && <span className="text-[10px] font-black opacity-20 uppercase tracking-widest">{unit}</span>}
     </div>
-    <div className="mt-4 flex items-center gap-2">
+    <div className="mt-4 flex items-center gap-2 text-[9px] font-black uppercase tracking-widest">
       <div className={cn("h-1 w-1 rounded-full", trend.includes('+') ? "bg-emerald-500" : "bg-red-500")} />
-      <span className={cn("text-[9px] font-black uppercase tracking-widest", trend.includes('+') ? "text-emerald-500" : "text-red-500")}>
-        {trend} vs prev
-      </span>
+      <span className={cn(trend.includes('+') ? "text-emerald-500" : "text-red-500")}>{trend}</span>
     </div>
   </div>
 );
@@ -179,21 +128,11 @@ const StatCard: React.FC<{
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="rounded-lg border border-zinc-800 bg-black/90 p-4 shadow-2xl backdrop-blur-md ring-1 ring-white/5">
-        <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 border-b border-zinc-800 pb-2">{label}</p>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-12">
-            <span className="text-[10px] font-bold uppercase text-zinc-400">Input</span>
-            <span className="font-mono text-xs font-bold text-red-500">{formatCompactNumber(payload[0].value)}</span>
-          </div>
-          <div className="flex items-center justify-between gap-12">
-            <span className="text-[10px] font-bold uppercase text-zinc-400">Output</span>
-            <span className="font-mono text-xs font-bold text-blue-500">{formatCompactNumber(payload[1].value)}</span>
-          </div>
-          <div className="mt-3 border-t border-zinc-800 pt-2 flex items-center justify-between">
-            <span className="text-[10px] font-black text-white uppercase tracking-widest">Total Usage</span>
-            <span className="font-mono text-xs font-black text-white">{formatCompactNumber(payload[0].value + payload[1].value)}</span>
-          </div>
+      <div className="rounded-lg border border-zinc-800 bg-black/95 p-4 shadow-2xl backdrop-blur-md">
+        <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-zinc-500 border-b border-zinc-800 pb-2">{label}</p>
+        <div className="space-y-2 font-mono text-xs">
+          <div className="flex justify-between gap-8"><span className="text-zinc-400">In</span><span className="text-red-500">{formatCompactNumber(payload[0].value)}</span></div>
+          <div className="flex justify-between gap-8"><span className="text-zinc-400">Out</span><span className="text-blue-500">{formatCompactNumber(payload[1].value)}</span></div>
         </div>
       </div>
     );

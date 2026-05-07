@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  Search, 
   Filter, 
   Share2, 
   Calendar, 
@@ -14,12 +13,6 @@ import {
 import { useDashboardFilters } from '../hooks/useDashboardFilters';
 import { cn } from '../lib/utils';
 
-export interface DashboardFilters {
-  agentId: string;
-  userId: string;
-  timespan: string;
-}
-
 export const CommandBar: React.FC = () => {
   const { filters, setFilters } = useDashboardFilters();
   const [copied, setCopied] = useState(false);
@@ -30,6 +23,7 @@ export const CommandBar: React.FC = () => {
   const [datasetId, setDatasetId] = useState(localStorage.getItem('user_bq_dataset') || '');
   const [tableId, setTableId] = useState(localStorage.getItem('user_bq_table') || '');
 
+  // Handle sharing the current dashboard URL
   const handleShare = async () => {
     await navigator.clipboard.writeText(window.location.href);
     setCopied(true);
@@ -64,7 +58,6 @@ export const CommandBar: React.FC = () => {
               icon={<Calendar size={14} />} 
               label="Timespan" 
               value={filters.timespan || '24h'} 
-              // UPDATED OPTIONS HERE
               options={['1h', '24h', '7d', '30d', '90d', '1y']}
               onChange={(v) => setFilters({ timespan: v })}
             />
@@ -75,9 +68,9 @@ export const CommandBar: React.FC = () => {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-4 border-l border-zinc-800">
             
-            {/* API KEY */}
-            <div className="relative group">
-              <Key className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600" size={10} />
+            {/* GEMINI API KEY */}
+            <div className="relative group" title="Gemini API Key">
+              <Key className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-emerald-500 transition-colors" size={10} />
               <input 
                 type="password" 
                 placeholder="Gemini Key" 
@@ -86,13 +79,13 @@ export const CommandBar: React.FC = () => {
                   setApiKey(e.target.value);
                   localStorage.setItem('user_gemini_key', e.target.value);
                 }}
-                className="h-8 w-28 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-emerald-500 focus:border-emerald-500/50 outline-none transition-all"
+                className="h-8 w-28 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-emerald-500 focus:border-emerald-500/50 outline-none transition-all placeholder:text-zinc-700"
               />
             </div>
 
-            {/* PROJECT ID */}
-            <div className="relative group">
-              <LayoutGrid className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600" size={10} />
+            {/* GCP PROJECT ID */}
+            <div className="relative group" title="GCP Project ID">
+              <LayoutGrid className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-400 transition-colors" size={10} />
               <input 
                 type="text" 
                 placeholder="Project ID" 
@@ -101,13 +94,13 @@ export const CommandBar: React.FC = () => {
                   setProjectId(e.target.value);
                   localStorage.setItem('user_gcp_project', e.target.value);
                 }}
-                className="h-8 w-28 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-blue-400 focus:border-blue-400/50 outline-none transition-all"
+                className="h-8 w-28 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-blue-400 focus:border-blue-400/50 outline-none transition-all placeholder:text-zinc-700"
               />
             </div>
 
-            {/* DATASET ID */}
-            <div className="relative group">
-              <Database className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600" size={10} />
+            {/* BIGQUERY DATASET */}
+            <div className="relative group" title="BigQuery Dataset ID">
+              <Database className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-zinc-300 transition-colors" size={10} />
               <input 
                 type="text" 
                 placeholder="Dataset" 
@@ -116,13 +109,13 @@ export const CommandBar: React.FC = () => {
                   setDatasetId(e.target.value);
                   localStorage.setItem('user_bq_dataset', e.target.value);
                 }}
-                className="h-8 w-24 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-zinc-300 focus:border-zinc-500/50 outline-none transition-all"
+                className="h-8 w-24 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-zinc-300 focus:border-zinc-500/50 outline-none transition-all placeholder:text-zinc-700"
               />
             </div>
 
-            {/* TABLE ID */}
-            <div className="relative group">
-              <TableIcon className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600" size={10} />
+            {/* BIGQUERY TABLE */}
+            <div className="relative group" title="BigQuery Table ID">
+              <TableIcon className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-zinc-300 transition-colors" size={10} />
               <input 
                 type="text" 
                 placeholder="Table" 
@@ -131,7 +124,7 @@ export const CommandBar: React.FC = () => {
                   setTableId(e.target.value);
                   localStorage.setItem('user_bq_table', e.target.value);
                 }}
-                className="h-8 w-24 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-zinc-300 focus:border-zinc-500/50 outline-none transition-all"
+                className="h-8 w-24 bg-zinc-900/50 border border-zinc-800 rounded pl-7 pr-2 text-[10px] text-zinc-300 focus:border-zinc-500/50 outline-none transition-all placeholder:text-zinc-700"
               />
             </div>
           </div>
@@ -152,7 +145,7 @@ export const CommandBar: React.FC = () => {
   );
 };
 
-/* Internal Filter Component */
+/* Reusable Filter Component */
 interface FilterSelectProps {
   icon: React.ReactNode;
   label: string;
