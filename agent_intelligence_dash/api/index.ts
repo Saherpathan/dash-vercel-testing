@@ -1,56 +1,50 @@
-// src/services/apiService.ts
+import { BigQuery } from '@google-cloud/bigquery';
 
-/**
- * Fetches agent intelligence data from the BigQuery proxy.
- * Uses credentials stored in localStorage from the CommandBar.
- * * @param timespan - Selected range (e.g., '1h', '24h', '7d', '30d', '90d', '1y')
- */
-export const fetchAgentData = async (timespan: string = '24h') => {
-  // Pull credentials saved by the CommandBar
-  const credentials = {
-    projectId: localStorage.getItem('user_gcp_project') || '',
-    datasetId: localStorage.getItem('user_bq_dataset') || '',
-    tableId: localStorage.getItem('user_bq_table') || '',
-    apiKey: localStorage.getItem('user_gemini_key') || ''
-  };
+// This runs on Vercel's servers
+const bqClient = new BigQuery({
+  projectId: process.env.GCP_PROJECT_ID,
+  credentials: {
+    client_email: process.env.GCP_CLIENT_EMAIL,
+    private_key: process.env.GCP_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  },
+});
 
-  // Build URL - org_id is removed as it's no longer used in the schema
-  const url = `/api?timespan=${timespan}`;
+export default async function handler(req: any, res: any) {
+  // 1. Get the table coordinates from the headers SENT by the frontend
+  const userProject = req.headers['x-gcp-project-id'];
+  const userDataset = req.headers['x-bq-dataset'];
+  const userTable = req.headers['x-bq-table'];
+  const { timespan } = req.query;
 
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-gcp-project-id': credentials.projectId,
-      'x-bq-dataset': credentials.datasetId,
-      'x-bq-table': credentials.tableId,
-      'x-gemini-api-key': credentials.apiKey
-    }
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    // This will catch the "Missing Configuration" error from the backend
-    throw new Error(errorData.error || 'Failed to fetch agent intelligence data');
+  // 2. Validate
+  if (!userProject || !userDataset || !userTable) {
+    return res.status(400).json({ 
+      error: "Missing Configuration: Ensure Project, Dataset, and Table IDs are entered." 
+    });
   }
 
-  return response.json();
-};
+  // 3. Setup Timespan
+  let interval = '24 HOUR';
+  const map: Record<string, string> = {
+    '1h': '1 HOUR', '24h': '24 HOUR', '7d': '7 DAY', '30d': '30 DAY', '90d': '90 DAY', '1y': '1 YEAR'
+  };
+  if (timespan && map[timespan as string]) interval = map[timespan as string];
 
-/**
- * Fetches unique filter values (Agents, Users) from the dataset.
- */
-export const fetchFilterOptions = async (type: string) => {
-  const projectId = localStorage.getItem('user_gcp_project');
-  
-  const response = await fetch(`/api/filters?type=${type}`, {
-    headers: { 
-      'x-gcp-project-id': projectId || '',
-      'x-bq-dataset': localStorage.getItem('user_bq_dataset') || '',
-      'x-bq-table': localStorage.getItem('user_bq_table') || ''
-    }
-  });
+  const tablePath = `\`${userProject}.${userDataset}.${userTable}\``;
 
-  if (!response.ok) return [];
-  return response.json();
-};
+  // 4. Execute BigQuery Query
+  const query = `
+    SELECT * FROM ${tablePath}
+    WHERE timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ${interval})
+    ORDER BY timestamp DESC
+    LIMIT 1000
+  `;
+
+  try {
+    const [rows] = await bqClient.query({ query });
+    res.status(200).json(rows);
+  } catch (error: any) {
+    console.error("BQ Error:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+}
